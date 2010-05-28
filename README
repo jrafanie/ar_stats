@@ -1,0 +1,94 @@
+ar_stats plugin:
+
+Use at your own risk!
+
+Summary:
+A plugin that collects and periodically logs ActiveRecord requests, request sizes, responses, response
+sizes, connection and callsite information.  This currently works with Rails 2.2.2 but should be
+relatively painless to migrate to 2.3+.
+
+Contact:
+  jrafanie at gmail dot com
+
+To setup:
+1) Download/checkout ar_stats directory to your vendor/plugins directory.
+
+2) Require it... this is easy if done through vendor/plugins.  Otherwise, add the path to the ar_stats
+directory to $: and then:
+require 'ar_stats/init'
+
+3) Configure your options somewhere in your application:
+options = {}
+
+# How frequently to log the database statistics/callsites
+options[:interval] = 10
+
+# Enable the AR stats collection and logging
+options[:enabled] = true
+
+# In addition, enable the callsites
+options[:callsites_enabled]  = true
+
+# How deep of the call stack to keep track of
+options[:callsites_depth] = 10
+
+# Minimum number of times a line of code must hit the DB to be tracked in the callsites
+options[:callsites_min_threshold] = 0
+
+# A regexp indicating what callsites to track (in this case, ignore all ActiveRecord calls and only include .rb files in the test/cases directory.
+options[:app_path_regexp] = /test\/cases\/[^\/]+\.rb/
+
+# Your logger
+options[:logger] = ActiveRecord::Base.logger
+
+# Tell ARStats to start tracking
+ARStats.instance.update_config(options)
+
+According to these settings, the Rails logger will print messages such as these:
+
+a) To indicate it's active:
+(postgresql) Enabling active record statistics with interval [10]
+
+b) Then, after a request has been made past the 10 second interval, you'll get a message such as:
+
+(postgresql-log_ar_stats) interval: 10 seconds, last logged: 10.000808 seconds ago: (Sizes are estimated) {:request_max_size=>20962, :reserved_connections=>1, :max_db_seconds=>0.0103249549865723, :responses=>435, :responses_total_size=>21852, :response_max_size=>5835, :requests=>435, :established_connections=>1, :requests_total_size=>62191, :connection_pool_size=>5, :db_seconds=>0.288524389266968}
+
+*the above messages in pp format:
+{:established_connections=>1,
+ :max_db_seconds=>0.0103249549865723,
+ :requests_total_size=>62191,
+ :responses=>435,
+ :connection_pool_size=>5,
+ :responses_total_size=>21852,
+ :db_seconds=>0.288524389266968,
+ :response_max_size=>5835,
+ :request_max_size=>20962,
+ :requests=>435,
+ :reserved_connections=>1}
+
+In addition, if callsites are enabled, you will get a file such as log/callsites_27616.log containing information such as:
+**************************************************
+Fri May 28 22:45:19 UTC 2010 PID: 27616 - Total DB requests: 42 for 27616 in the past 10.016109 seconds...
+count      callsite
+42      ./test/cases/helper.rb:49:in `select_raw'
+  1 of 42     ./test/cases/transactions_test.rb:87:in `test_failing_on_exception'
+  1 of 42     ./test/cases/transactions_test.rb:86:in `test_failing_on_exception'
+  1 of 42     ./test/cases/transactions_test.rb:24:in `test_successful'
+  1 of 42     ./test/cases/transactions_test.rb:66:in `test_successful_with_instance_method'
+  1 of 42     ./test/cases/transactions_test.rb:23:in `test_successful'
+  1 of 42     ./test/cases/transactions_test.rb:212:in `test_manually_rolling_back_a_transaction'
+  1 of 42     ./test/cases/transactions_test.rb:67:in `test_successful_with_instance_method'
+  1 of 42     ./test/cases/transactions_test.rb:195:in `test_nested_explicit_transactions'
+  1 of 42     ./test/cases/transactions_test.rb:213:in `test_manually_rolling_back_a_transaction'
+  10 of 42     ./test/cases/transactions_test.rb:12:in `setup'
+  1 of 42     ./test/cases/transactions_test.rb:196:in `test_nested_explicit_transactions'
+  1 of 42     ./test/cases/transactions_test.rb:99:in `test_raising_exception_in_callback_rollbacks_in_save'
+
+
+
+
+TODO:
+  Add unit tests
+  Add support for ActiveRecord 2.3+ and 3
+  Add monkey patches required to get the response sizes for the various adapters
+  Refactor this mess!
